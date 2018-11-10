@@ -8,6 +8,7 @@ exports.newSession = function(sessionID){
       turnOrder:[],
       socketIds:[],
       turnEndTimeout: null,
+      awaitingSelections:[]
     },
     field: {
       decks:[],
@@ -54,7 +55,9 @@ function newCharacterCard(){
   return {
     name: 'Character Card',
     description:'Blank character card',
+    type:"character",
     effect:[],
+    isSelectable: false
     //image:"./xxx.jpg"
   }
 }
@@ -63,11 +66,19 @@ function newCard(){
   return {
     name:"Sample Card",
     description:"Blank template",
-    effect:[],
+    effect:[newDamageEffect()],
     type:"action",
-    actionCost: 1
+    actionCost: 1,
+    isSelectable: false
     //revealed:"false"
   };
+}
+
+function newDamageEffect(){
+  return {
+    type: 'damage',
+    qty: 1
+  }
 }
 
 function newHighCostCard(){
@@ -76,7 +87,8 @@ function newHighCostCard(){
     description:"Blank template",
     effect:[],
     type:"action",
-    actionCost: 3
+    actionCost: 3,
+    isSelectable: false
     //revealed:"false"
   };
 }
@@ -87,7 +99,8 @@ function newDefenseCard(){
     description:"Blank template",
     effect:[],
     type:"defense",
-    actionCost: 1
+    actionCost: 1,
+    isSelectable: false
   };
 }
 
@@ -97,7 +110,19 @@ function newWeaponCard(){
     description:"Blank template",
     effect:[],
     type:"weapon",
-    actionCost: 1
+    actionCost: 1,
+    isSelectable: false
+  };
+}
+
+function newSummonCard(){
+  return {
+    name:"Sample Summon Card",
+    description:"Blank template",
+    effect:[],
+    type:"summon",
+    actionCost: 1,
+    isSelectable: false
   };
 }
 
@@ -107,7 +132,8 @@ function newEmptyCard(){
     description:"Blank template",
     effect:[],
     type:"nocard",
-    actionCost: 0
+    actionCost: 0,
+    isSelectable: false
   };
 }
 
@@ -117,7 +143,8 @@ function newHiddenCard(){
     description:"",
     effect:[],
     type:"unknown",
-    actionCost: 0
+    actionCost: 0,
+    isSelectable: false
   };
 }
 

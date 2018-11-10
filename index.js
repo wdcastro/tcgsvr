@@ -70,7 +70,21 @@ io.sockets.on('connection', function(socket){
   socket.on('join session', message => joinSession(message,socket.id));
 
   socket.on('start session', message => startSession(message,socket.id));
+
+  socket.on('stop timer', message => stopTimer(message,socket.id));
 });
+
+function stopTimer(message, socketid){
+  console.log("timer stopping");
+  console.log(message.sessionID);
+  console.log(sessionTimers);
+
+  var session = games.newSession(message.sessionID);
+  clearTimeout(sessionTimers[message.sessionID]);
+  console.log(session);
+  saveSession(session);
+
+}
 
 //SESSION ACTIONS
 function newSession(message, socketid){
@@ -209,18 +223,22 @@ function checkValidAction(action, socket){
       switch (action.location){
       case 'hand':
       if(action.playerindex == session.gameState.turnPlayer){
-        cardtoplay = session.field.hands[action.playerindex].splice(action.cardindex,1)[0];
-        if(cardtoplay.length == 0){
+        console.log('its my turn');
+        cardtoplay = session.field.hands[action.playerindex][action.cardindex];
+        if(cardtoplay == null){
           console.log("sent a request for nonexistent card");
           break;
         }
         if(session.field.actioncounts[action.playerindex] >= cardtoplay.actionCost){ //check action cost
+          console.log('i have enough actions');
+          session.field.hands[action.playerindex].splice(action.cardindex,1)[0];
           session.field.actioncounts[action.playerindex] -= cardtoplay.actionCost;
           switch(cardtoplay.type){
           case 'action':
           //move to active area
+          console.log('played an action card');
           session.field.activecards[action.playerindex].push(cardtoplay);
-
+          activateEffects(session,cardtoplay, action.playerindex, 0);
           //apply effects
           break;
           case 'defense':
@@ -244,9 +262,12 @@ function checkValidAction(action, socket){
       break;
       case 'defense':
       //TODO this takes turn into account when playing defense
-      cardtoplay = session.field.defensezone[action.playerindex].splice(action.cardindex,1)[0];
+      cardtoplay = session.field.defensezone[action.playerindex][action.cardindex];
+      if(session.field.actioncounts[action.playerindex] >= cardtoplay.actionCost){
+        session.field.defensezone[action.playerindex].splice(action.cardindex,1)[0];
       //activate effect cardtoplay
-      session.field.discardpile[action.playerindex].push(cardtoplay);
+        session.field.discardpile[action.playerindex].push(cardtoplay);
+      }
       break;
       case 'weapon':
       cardtoplay = session.field.weapons[action.playerindex];
@@ -270,12 +291,104 @@ function checkValidAction(action, socket){
 
 }
 
-function cardEffects(){
+function activateEffects(session, cardtoplay, activatedby, target){
   //lose hp
+
+  console.log("playing "+cardtoplay.name+" cast by "+activatedby+" aimed at "+target);
+  var effects = cardtoplay.effect;
+  for(let effect of effects){
+    switch(effect.type){
+      case 'damage':
+      session.field.hp[target]-=effect.qty;
+      console.log('dealing damage' + effect.qty);
+      askForSelection(session, activatedby, 'attack');
+      break;
+    }
+  }
+  //sendFieldInfo(session);
+  //saveSession(session);
+  //DO I REALLY NEED THIS
   //lose mana
   //lose cards
   //draw cards
   //check for win condition
+}
+
+function setAllSelectableFalse(session){
+
+}
+
+function askForSelection(session, playerToAsk, selectionType){
+  console.log("askForSelection");
+  console.log(selectionType);
+  switch(selectionType){
+    case 'attack':
+    console.log("inside attack");
+    io.to(session.gameState.socketIds[playerToAsk]).emit('selection','attack');
+    console.log(session);
+    for(var i = 0; i< session.field.charactercards.length; i++){ //set characters selectable
+      console.log("inside character cards loop");
+      console.log("loooking at "+session.field.charactercards[i].name);
+      if(i != playerToAsk){
+        session.field.charactercards[i].isSelectable = true;
+      } else {
+        console.log(i);
+        console.log(playerToAsk);
+      }
+    }
+    console.log("------------------------------");
+
+    for(var i = 0; i< session.field.activecards.length; i++){ //set activezone selectable
+      if(i != playerToAsk){
+        for(var j = 0; j < session.field.activecards[i]; j++){ //for each card
+          //check for type
+          //if type()
+          session.field.activecards[i][j].isSelectable = true;
+        }
+      }
+    }
+    //form an array and select
+/*
+what can i attack
+enemy
+enemy summon
+
+what can i destroy
+enemy active cards
+enemy defense cards
+enemy weapon
+enemy summons
+
+what can i bounce
+enemy active cards - highlighting cards
+enemy defense cards - highlighting cards
+enemy weapons
+enemy summons - wihtout untargetable effects
+
+what can i search from deck
+cards with <tag> - presenting choice array
+
+
+function to parse if selectable? parse it here
+create a field with selections offered - done this
+front end should be in select mode, or add a gamestate that shows it is selecting - don't need a state
+card.isSelectable = true for those sleecting can modify sendFieldInfo - just need to send field info here
+*/
+
+    sendFieldInfo(session);
+    //ask for selection
+    //selectio ncomes i through socket
+    //remember what the selection is for
+    //use selection and execute effect
+/*
+some changes to timer so it doesnt end turn ... or can it end turn
+
+send selectable info?
+emit "player x is selecting", to show graphical on other players
+
+*/
+    break;
+  }
 }
 
 function checkWinCondition(session){
@@ -337,6 +450,7 @@ function nextTurn(sessionID){
       //wait for action. start timer on timer endturn();
       //session.gameState.turnEndTimeout = setTimeout(endTurn,10000,session);
       sessionTimers[session.gameState.sessionID] = setTimeout(endTurn,10000,session);
+
       saveSession(session);
       sendFieldInfo(session);
       sendGameStateInfo(session);
